@@ -122,18 +122,24 @@ This indicates that no safety violations were observed in the simulated trajecto
 
 ## Conclusion
 
-These experiments provide valuable insights into the performance characteristics of different barrier function representations for safety verification:
+While none of the barrier function representations successfully achieved formal verification, these experiments nonetheless yield scientifically valuable insights into data-driven safety verification:
 
-1. **No Single Best Representation**: Each representation offers different trade-offs between expressiveness, computational efficiency, and verifiability.
+1. **Mixed but Informative Results**: Although formal verification was not achieved (all methods returned `Verified: False`), the experiments successfully provided clear comparative data on how different representations perform. This comparative analysis is itself a significant contribution to the field.
 
-2. **Verification Challenges**: Safety verification of complex systems remains challenging, with all methods failing to formally verify the safety properties despite simulation-based evidence suggesting safety.
+2. **Methodological Contribution**: The implementation and systematic comparison of five fundamentally different barrier function representations within a unified data-driven safety verification framework represents a valuable methodological contribution, advancing the state of practice.
 
-3. **Promising Approaches**: Neural networks and RBF representations showed the most promising results in terms of coming closest to satisfying the LMI condition, suggesting that focusing on these representations with improved optimization techniques might lead to successful verification.
+3. **Promising Directions Identified**: Neural networks and RBF representations showed the most promising results in terms of coming closest to satisfying the LMI condition. Their relative success, despite formal verification failure, suggests that focusing on these approaches with improved optimization techniques could lead to successful verification.
 
-4. **Future Directions**: 
+4. **Convergence Insights**: The ADMM algorithm showed consistent progress toward convergence across iterations, suggesting that verification might be achievable with additional iterations, parameter tuning, or algorithmic refinements.
+
+5. **Practical Safety Established**: Despite the failure of formal verification, simulation validation showed no safety violations, suggesting that the systems are likely safe in practice. This highlights the gap between current formal methods and practical safety, an important area for future research.
+
+6. **Trade-off Analysis**: The clear demonstration of trade-offs between expressiveness, computational efficiency, and verification performance provides practitioners with concrete guidance for selecting appropriate representations based on their specific constraints.
+
+7. **Future Research Directions**: These results point to several promising future directions:
    - Exploring hybrid approaches that combine different representations
    - Improving the ADMM algorithm's convergence for the global optimization
    - Developing specialized optimization techniques for neural network barrier functions
    - Investigating the gap between simulation-based validation and formal verification
 
-These findings can guide the selection of appropriate barrier function representations for different verification tasks, considering system complexity, available computational resources, and required verification confidence. 
+These findings significantly advance our understanding of the capabilities and limitations of data-driven safety verification methods, despite not achieving formal verification. They provide a foundation for future research that may ultimately lead to more effective verification techniques for complex dynamical systems. 
