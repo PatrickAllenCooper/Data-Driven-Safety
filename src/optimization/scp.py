@@ -245,28 +245,32 @@ class LinearSCP(ScenarioProgram):
         if hasattr(self.barrier, '_compute_multivariate_basis'):
             # For polynomial basis
             return self.barrier._compute_multivariate_basis(state.reshape(1, -1))[0]
+        elif hasattr(self.barrier, '_compute_barrier_values'):
+            # Use the barrier's own method if available
+            return self.barrier._compute_barrier_values(state)
         elif hasattr(self.barrier, '_tensor_product'):
-            # For Fourier basis
-            x_norm = self.barrier._normalize_input(state.reshape(1, -1))
-            if self.barrier.dimension == 1:
-                return self.barrier._compute_1d_basis(x_norm[:, 0])[0]
+            # For Fourier basis or similar
+            if hasattr(self.barrier, '_normalize_input'):
+                x_norm = self.barrier._normalize_input(state.reshape(1, -1))
+                if self.barrier.dimension == 1:
+                    return self.barrier._compute_1d_basis(x_norm[:, 0])[0]
+                else:
+                    bases = []
+                    for i in range(self.barrier.dimension):
+                        bases.append(self.barrier._compute_1d_basis(x_norm[:, i]))
+                    return self.barrier._tensor_product(bases)[0]
             else:
+                # For wavelet basis (fallback for old implementation)
                 bases = []
                 for i in range(self.barrier.dimension):
-                    bases.append(self.barrier._compute_1d_basis(x_norm[:, i]))
-                return self.barrier._tensor_product(bases)[0]
-        elif hasattr(self.barrier, '_interpolate_basis'):
-            # For wavelet basis
-            bases = []
-            for i in range(self.barrier.dimension):
-                x_clipped = np.clip(state[i], self.barrier.domain_bounds[i, 0], self.barrier.domain_bounds[i, 1])
-                basis_i = self.barrier._interpolate_basis(np.array([x_clipped]), i)
-                bases.append(basis_i)
-            
-            if self.barrier.dimension == 1:
-                return bases[0][0]
-            else:
-                return self.barrier._tensor_product(bases)[0]
+                    x_clipped = np.clip(state[i], self.barrier.domain_bounds[i, 0], self.barrier.domain_bounds[i, 1])
+                    basis_i = self.barrier._interpolate_basis(np.array([x_clipped]), i)
+                    bases.append(basis_i)
+                
+                if self.barrier.dimension == 1:
+                    return bases[0][0]
+                else:
+                    return self.barrier._tensor_product(bases)[0]
         elif hasattr(self.barrier, 'rbf'):
             # For RBF basis
             x = state.reshape(1, -1)
@@ -469,8 +473,30 @@ class NeuralSCP(ScenarioProgram):
         B_next_values = np.zeros(n_samples)
         
         for i in range(n_samples):
-            B_values[i] = self.barrier.evaluate(states[i].reshape(1, -1))[0]
-            B_next_values[i] = self.barrier.evaluate(next_states[i].reshape(1, -1))[0]
+            # Fix: Handle scalar vs array return from barrier.evaluate
+            B_val = self.barrier.evaluate(states[i].reshape(1, -1))
+            if np.isscalar(B_val):
+                B_values[i] = B_val
+            elif hasattr(B_val, "shape") and B_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                B_values[i] = B_val.item()
+            elif hasattr(B_val, "__getitem__") and len(B_val) > 0:
+                # Handle array-like objects with at least one element
+                B_values[i] = B_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_val}")
+            
+            B_next_val = self.barrier.evaluate(next_states[i].reshape(1, -1))
+            if np.isscalar(B_next_val):
+                B_next_values[i] = B_next_val
+            elif hasattr(B_next_val, "shape") and B_next_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                B_next_values[i] = B_next_val.item()
+            elif hasattr(B_next_val, "__getitem__") and len(B_next_val) > 0:
+                # Handle array-like objects with at least one element
+                B_next_values[i] = B_next_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_next_val}")
         
         # Add constraints
         constraints = [eta >= 0]  # Non-negative slack

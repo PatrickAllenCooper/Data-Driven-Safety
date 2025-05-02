@@ -64,8 +64,8 @@ def plot_barrier_function_2d(barrier, domain_x, domain_y, subsystem=None, resolu
     
     Args:
         barrier: Barrier function representation.
-        domain_x (numpy.ndarray): Domain bounds for x [min, max].
-        domain_y (numpy.ndarray): Domain bounds for y [min, max].
+        domain_x (list): Domain bounds for x [min, max].
+        domain_y (list): Domain bounds for y [min, max].
         subsystem: Subsystem object (optional).
         resolution (int, optional): Resolution of the plot. Defaults to 50.
         ax (matplotlib.axes.Axes, optional): Axes to plot on. If None, creates a new figure.
@@ -87,7 +87,18 @@ def plot_barrier_function_2d(barrier, domain_x, domain_y, subsystem=None, resolu
     Z = np.zeros((resolution, resolution))
     for i in range(resolution):
         for j in range(resolution):
-            Z[i, j] = barrier.evaluate(np.array([[X[i, j], Y[i, j]]]))[0]
+            # Handle different return types from barrier.evaluate
+            B_val = barrier.evaluate(np.array([[X[i, j], Y[i, j]]]))
+            if np.isscalar(B_val):
+                Z[i, j] = B_val
+            elif hasattr(B_val, "shape") and B_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                Z[i, j] = B_val.item()
+            elif hasattr(B_val, "__getitem__") and len(B_val) > 0:
+                # Handle array-like objects with at least one element
+                Z[i, j] = B_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_val}")
     
     # Plot barrier function
     contour = ax.contourf(X, Y, Z, 50, cmap='viridis', alpha=0.7)
@@ -160,7 +171,18 @@ def plot_barrier_function_3d(barrier, domain_x, domain_y, resolution=30, ax=None
     Z = np.zeros((resolution, resolution))
     for i in range(resolution):
         for j in range(resolution):
-            Z[i, j] = barrier.evaluate(np.array([[X[i, j], Y[i, j]]]))[0]
+            # Handle different return types from barrier.evaluate
+            B_val = barrier.evaluate(np.array([[X[i, j], Y[i, j]]]))
+            if np.isscalar(B_val):
+                Z[i, j] = B_val
+            elif hasattr(B_val, "shape") and B_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                Z[i, j] = B_val.item()
+            elif hasattr(B_val, "__getitem__") and len(B_val) > 0:
+                # Handle array-like objects with at least one element
+                Z[i, j] = B_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_val}")
     
     # Plot surface
     surf = ax.plot_surface(X, Y, Z, cmap=cm.viridis, alpha=0.8, linewidth=0)

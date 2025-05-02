@@ -360,4 +360,51 @@ class WaveletBarrier(BarrierRepresentation):
         return np.max(grad_norms)
     
     def __str__(self):
-        return f"{self.name} (dim={self.dimension}, wavelet={self.wavelet}, level={self.level})" 
+        return f"{self.name} (dim={self.dimension}, wavelet={self.wavelet}, level={self.level})"
+
+    def _normalize_input(self, x):
+        """
+        Normalize input to the domain [0, 1]^n_dim.
+        
+        Args:
+            x (numpy.ndarray): Input points, shape (n_samples, n_dim).
+            
+        Returns:
+            numpy.ndarray: Normalized input, shape (n_samples, n_dim).
+        """
+        # Make x 2D if it's not already
+        x = np.atleast_2d(x)
+        
+        # Normalize each dimension to [0, 1]
+        x_norm = np.zeros_like(x, dtype=float)
+        
+        for d in range(self.dimension):
+            a, b = self.domain_bounds[d, 0], self.domain_bounds[d, 1]
+            # Clip values to domain bounds for stability
+            x_clipped = np.clip(x[:, d], a, b)
+            # Normalize to [0, 1]
+            x_norm[:, d] = (x_clipped - a) / (b - a)
+            
+        return x_norm
+        
+    def _compute_barrier_values(self, state):
+        """
+        Compute the values of basis functions at a given state.
+        
+        Args:
+            state (numpy.ndarray): State vector, shape (state_dim,).
+            
+        Returns:
+            numpy.ndarray: Values of basis functions, shape (n_params,).
+        """
+        state = np.atleast_2d(state)
+        bases = []
+        for i in range(self.dimension):
+            x_clipped = np.clip(state[:, i], self.domain_bounds[i, 0], self.domain_bounds[i, 1])
+            basis_i = self._interpolate_basis(x_clipped, i)
+            bases.append(basis_i)
+        
+        if self.dimension == 1:
+            return bases[0][0]
+        else:
+            return self._tensor_product(bases)[0] 

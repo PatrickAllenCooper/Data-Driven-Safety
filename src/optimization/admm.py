@@ -204,23 +204,43 @@ class SubsystemOptimizer:
         eta = cp.Variable()  # Slack variable
         
         # Compute barrier values
-        if hasattr(barrier, 'model'):
-            # Neural network barrier
-            B_values = np.zeros(n_samples)
-            B_next_values = np.zeros(n_samples)
-            
-            for i in range(n_samples):
-                B_values[i] = barrier.evaluate(states[i].reshape(1, -1))[0]
-                B_next_values[i] = barrier.evaluate(next_states[i].reshape(1, -1))[0]
-        else:
-            # Linear barrier
-            B_values = np.zeros(n_samples)
-            B_next_values = np.zeros(n_samples)
-            
-            for i in range(n_samples):
-                B_values[i] = barrier.evaluate(states[i].reshape(1, -1), barrier.parameters)[0]
-                B_next_values[i] = barrier.evaluate(next_states[i].reshape(1, -1), barrier.parameters)[0]
+        B_values = np.zeros(n_samples)
+        B_next_values = np.zeros(n_samples)
         
+        for i in range(n_samples):
+            # Handle different return types from barrier.evaluate
+            if hasattr(barrier, 'model'):
+                # Neural network barrier
+                B_val = barrier.evaluate(states[i].reshape(1, -1))
+                B_next_val = barrier.evaluate(next_states[i].reshape(1, -1))
+            else:
+                # Linear barrier
+                B_val = barrier.evaluate(states[i].reshape(1, -1), barrier.parameters)
+                B_next_val = barrier.evaluate(next_states[i].reshape(1, -1), barrier.parameters)
+            
+            # Handle different return types
+            if np.isscalar(B_val):
+                B_values[i] = B_val
+            elif hasattr(B_val, "shape") and B_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                B_values[i] = B_val.item()
+            elif hasattr(B_val, "__getitem__") and len(B_val) > 0:
+                # Handle array-like objects with at least one element
+                B_values[i] = B_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_val}")
+            
+            if np.isscalar(B_next_val):
+                B_next_values[i] = B_next_val
+            elif hasattr(B_next_val, "shape") and B_next_val.shape == ():
+                # Handle 0-dim arrays (numpy scalars)
+                B_next_values[i] = B_next_val.item()
+            elif hasattr(B_next_val, "__getitem__") and len(B_next_val) > 0:
+                # Handle array-like objects with at least one element
+                B_next_values[i] = B_next_val[0]
+            else:
+                raise ValueError(f"Unexpected output from barrier.evaluate: {B_next_val}")
+                
         # Add constraints
         constraints = [eta >= 0]  # Non-negative slack
         
@@ -295,7 +315,17 @@ class GlobalOptimizer:
         
         # Construct the extended interconnection matrix
         M = self.network.M
-        M_ext = np.vstack((M, np.eye(self.network.total_input_dim)))
+        
+        # Fix: Check that the dimensions match before stacking
+        # M should have shape (total_input_dim, total_state_dim)
+        # Make sure the identity matrix has appropriate dimensions
+        if M.shape[0] != self.network.total_input_dim:
+            # Add appropriate padding or reshape M to ensure compatibility
+            padded_M = np.zeros((self.network.total_input_dim, M.shape[1]))
+            padded_M[:M.shape[0], :] = M
+            M = padded_M
+            
+        M_ext = np.vstack((M, np.eye(M.shape[1])))
         
         # Construct the block diagonal of Z_i
         Z_diag_blocks = []

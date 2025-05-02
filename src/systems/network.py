@@ -159,7 +159,16 @@ class Network:
         X_diag = self._construct_X_diagonal()
         
         # Extended interconnection matrix
-        M_ext = np.vstack((self.M, np.eye(self.total_input_dim)))
+        M = self.M
+        
+        # M should have shape (total_input_dim, total_state_dim)
+        if M.shape[0] != self.total_input_dim:
+            # Add appropriate padding or reshape M to ensure compatibility
+            padded_M = np.zeros((self.total_input_dim, M.shape[1]))
+            padded_M[:M.shape[0], :] = M
+            M = padded_M
+            
+        M_ext = np.vstack((M, np.eye(M.shape[1])))
         
         # Compute the LMI Delta matrix
         Delta = M_ext.T @ X_diag @ M_ext
